@@ -82,6 +82,6 @@ async def get_cache_db(cache, db_proxy_port: int = 8191) -> EasyRpcProxyDatabase
             await cache.quorum_db.run('drop table env')
             await asyncio.sleep(1)
             await cache.quorum_db.close()
-        asyncio.create_task(db_cleanup())
+        await db_cleanup()
     
     return cache_db
