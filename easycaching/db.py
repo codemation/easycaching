@@ -22,11 +22,11 @@ async def get_cache_db(cache, db_proxy_port: int = 8191) -> EasyRpcProxyDatabase
                 try:
                     status = yield proxy
                     if status == 'finished':
-                        proxy.send_signal(signal.SIG_INT)
+                        proxy.send_signal(signal.SIGINT)
                         proxy.wait()
                         break
                 except asyncio.CancelledError:
-                    proxy.send_signal(signal.SIG_INT)
+                    proxy.send_signal(signal.SIGINT)
                     proxy.wait()
                     break
         async def proxy_manager():
