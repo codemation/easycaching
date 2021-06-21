@@ -11,11 +11,11 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 setuptools.setup(
      name='easycaching',  
-     version='0.1',
+     version='NEXTVERSION',
      packages=setuptools.find_packages(include=['easycaching'], exclude=['build']),
      author="Joshua Jamison",
      author_email="joshjamison1@gmail.com",
-     description="Easily create data visualization of static or streaming data",
+     description="Shared, persistent, and smart caching via a single shared interface for storing and retreiving data from memory among many processes(forks) of an application",
      long_description=long_description,
    long_description_content_type="text/markdown",
      url="https://github.com/codemation/easycaching",
