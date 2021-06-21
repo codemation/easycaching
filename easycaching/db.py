@@ -36,9 +36,11 @@ async def get_cache_db(cache, db_proxy_port: int = 8191) -> EasyRpcProxyDatabase
                 try:
                     await asyncio.sleep(60)
                 except asyncio.CancelledError:
-                    await proxy.asend('finished')
+                    try:
+                        await proxy.asend('finished')
+                    except StopAsyncIteration:
+                        pass
                     break
-
         asyncio.create_task(proxy_manager())
 
         await asyncio.sleep(3)
