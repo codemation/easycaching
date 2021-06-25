@@ -4,6 +4,14 @@
 
 Shared, persistent, and smart caching 
 
+[![Documentation Status](https://readthedocs.org/projects/easycache/badge/?version=latest)](https://easycache.readthedocs.io/en/latest/?badge=latest)
+ [![PyPI version](https://badge.fury.io/py/easycaching.svg)](https://badge.fury.io/py/easycaching)
+ [![Test EasyCaching](https://github.com/codemation/easycaching/actions/workflows/main.yaml/badge.svg)](https://github.com/codemation/easycaching/actions/workflows/main.yaml)
+
+<h2>Documentation</h1> 
+
+[https://easycache.readthedocs.io/en/latest/](https://easycache.readthedocs.io/en/latest/)
+
 ## What is it?
 easycaching provides a single shared interface for storing and retreiving data from memory among many processes(forks) of an application.
 
