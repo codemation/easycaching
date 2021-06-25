@@ -1,0 +1,11 @@
+site_name: EasyCahing
+theme: readthedocs
+markdown_extensions:
+  - admonition
+nav:
+  - Home: index.md
+  - Setup: installation.md
+  - Ports: ports.md
+  - Cache Usage: cache.md
+  - Queue Usage: queue.md
+  - Under The Hood: underthehood.md

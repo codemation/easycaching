@@ -1,4 +1,6 @@
-import os
+import asyncio
+import os, time
+from asyncio import Queue
 from easyrpc.server import EasyRpcServer
 from aiopyql.data import Database
 
@@ -137,6 +139,186 @@ def db_proxy_setup(server):
             )
             await show_tables()
             return result
+
+        server.queues = {}
+
+        cache_ns = db_name
+
+        @db_server.origin(namespace=cache_ns)
+        async def ec_cache_setup():
+            await db.create_table(
+                'queues', 
+                [
+                    ['queue', 'str', 'UNIQUE NOT NULL'],
+                    ['created', 'float']
+                ],
+                'queue',
+                cache_enabled=True
+            )
+
+            # create cache table
+
+            await db.create_table(
+                'cache', 
+                [
+                    ['cache', 'str', 'UNIQUE NOT NULL'],
+                    ['created', 'float']
+                ],
+                'cache',
+                cache_enabled=True
+            )
+
+        @db_server.origin(namespace=cache_ns)
+        async def ec_create_cache(cache, cache_size):
+            if cache in db.tables:
+                raise Exception(f"cache name {cache} already exists")
+            
+            await db.create_table(
+                cache,
+                [
+                    ['cache_key', 'str', 'UNIQUE NOT NULL'],
+                    ['value', 'str'],
+                ],
+                'cache_key',
+                cache_enabled=True,
+                max_cache_len=cache_size
+            )
+
+            await db.tables['cache'].insert(
+                cache=cache,
+                created=time.time()
+            )
+
+        @db_server.origin(namespace=cache_ns)
+        async def ec_create_queue(queue):
+            if queue in server.queues:
+                raise Exception(f"queue name {queue} already exists")
+
+            server.queues[queue] = Queue()
+            await db.create_table(
+                name=queue, 
+                columns=[
+                    ['timestamp', 'float', 'UNIQUE NOT NULL'],
+                    ['data', str]
+                ], 
+                prim_key='timestamp', 
+                cache_enabled=True,
+            )
+            await db.tables['queues'].insert(
+                queue=queue
+            )
+            return f"queue {queue}  created"
+        @db_server.origin(namespace=cache_ns)
+        async def ec_clear_queue(queue) -> None:
+            if not queue in db.tables:
+                raise Exception(f"queue name {queue} does not exist")
+            items = await db.tables[queue].select('timestamp')
+            for item in items:
+                await db.tables[queue].delete(
+                    where={'timestamp': item['timestamp']}
+                )
+            server.queues[queue] = Queue()
+
+        @db_server.origin(namespace=cache_ns)
+        async def ec_load_cache() -> None:
+            caches = await db.tables['cache'].select(
+                '*'
+            )
+            for cache in caches:
+                keys = await db.tables[cache['cache']].select('cache_key')
+                for key in keys:
+                    await db.tables[cache['cache']][key]
+
+        @db_server.origin(namespace=cache_ns)
+        async def ec_load_queues():
+            queues = await db.tables['queues'].select(
+                '*'
+            )
+            for queue in queues:
+                queue_name = queue['queue']
+
+                # create queue
+                if not queue_name in server.queues:
+                    server.queues[queue_name] = Queue()
+                
+                # load queue
+                queued_items = await db.tables[queue_name].select('*')
+                print(queued_items)
+                for item in queued_items:
+                    timestamp = item['timestamp']
+                    await server.queues[queue_name].put({'time': timestamp, 'data': item['data']})
+            print(server.queues[queue_name])
+            return [queue['queue'] for queue in queues]
+        
+        @db_server.origin(namespace=cache_ns)
+        async def ec_queue_put(queue, data):
+            # add data to db
+            time_now = time.time()
+            await db.tables[queue].insert(
+                timestamp=time_now,
+                data=data
+            )
+            await server.queues[queue].put({'time': time_now, 'data': data})
+            return {'message': 'added to queue'}
+
+        @db_server.origin(namespace=cache_ns)
+        async def ec_queue_get(queue):
+            try:
+                item = server.queues[queue].get_nowait()
+                asyncio.create_task(
+                    db.tables[queue].delete(
+                        where={'timestamp': item['time']}
+                    )
+                )
+                
+                return item['data']
+            except asyncio.queues.QueueEmpty:
+                return {'warning': 'queue empty'}
+
+        @db_server.origin(namespace=cache_ns)
+        async def ec_cache_set(cache_name: str, key: str, value) -> str:
+            cache = db.tables[cache_name]
+            existing = await cache[key]
+            if existing is None:
+                result =  await cache.insert(
+                    cache_key=key,
+                    value=value
+                )
+                return f"value for {key} added to {cache_name}"
+            else:
+                result = await cache.update(
+                    value=value,
+                    where={
+                        'cache_key': key
+                    }
+                )
+                return f"value for {key} updated in {cache_name}"
+            
+        @db_server.origin(namespace=cache_ns)
+        async def ec_cache_get(cache: str, key):
+            return await db.tables[cache][key]
+        
+        @db_server.origin(namespace=cache_ns)
+        async def ec_cache_get_all(cache):
+            for item in await db.tables[cache].select('*'):
+                yield {item['cache_key']: item['value']}
+            
+        
+        @db_server.origin(namespace=cache_ns)
+        async def ec_cache_delete(cache, key) -> str:
+            result =  await db.tables[cache].delete(
+                where={'cache_key': key}
+            )
+            return f"{key} deleted from {cache}"
+    
+        @db_server.origin(namespace=cache_ns)
+        async def ec_cache_clear(cache) -> str:
+            keys = await db.tables[cache].select('cache_key')
+            for key in keys:
+                await db.tables[cache].delete(
+                    where={'cache_key': key['cache_key']}
+                )
+            return f"cache {cache} cleared"
 
         db_server.origin(db.run, namespace=db_name)
 

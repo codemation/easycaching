@@ -41,16 +41,17 @@ async def get_cache_db(cache, db_proxy_port: int = 8191) -> EasyRpcProxyDatabase
                     except StopAsyncIteration:
                         pass
                     break
-        asyncio.create_task(proxy_manager())
+        cache.proxy_manager = asyncio.create_task(proxy_manager())
 
         await asyncio.sleep(3)
+    
 
 
     RPC_SECRET = os.environ['RPC_SECRET']
 
     cache_db = await EasyRpcProxyDatabase.create(
         '127.0.0.1', 
-        db_proxy_port, 
+        db_proxy_port,
         f'/ws/{DB_NAME}', 
         server_secret=RPC_SECRET,
         namespace=f'{DB_NAME}'
