@@ -123,6 +123,13 @@ def db_proxy_setup(server):
                         break
                 table_list.append(table)
             return table_list
+        
+        @db_server.origin(namespace=db_name)
+        async def drop_table(table: str):
+            result = await db.remove_table(table)
+            print(f"drop table result: {result}")
+            return f"drop table {table} completed"
+
 
         @db_server.origin(namespace=db_name)
         async def create_table(

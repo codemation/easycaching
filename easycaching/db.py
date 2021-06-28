@@ -1,7 +1,6 @@
 import os
 import asyncio
 import subprocess, signal
-from typing import AsyncIterable
 from easyrpc.tools.database import EasyRpcProxyDatabase
 from easycaching.quorum import quorum_setup
 
@@ -45,8 +44,6 @@ async def get_cache_db(cache, db_proxy_port: int = 8191) -> EasyRpcProxyDatabase
 
         await asyncio.sleep(3)
     
-
-
     RPC_SECRET = os.environ['RPC_SECRET']
 
     cache_db = await EasyRpcProxyDatabase.create(
@@ -63,26 +60,7 @@ async def get_cache_db(cache, db_proxy_port: int = 8191) -> EasyRpcProxyDatabase
         await asyncio.sleep(2)
     
     if not cache.leader:
-        while not cache.name in cache_db.tables:
+        while not 'cache' in cache_db.tables:
             print(f"waiting for leader to complete - db setup")
-            await asyncio.sleep(2)
-        await cache.quorum_db.tables['quorum'].update(
-            ready=True,
-            where={'member_id': os.environ['member_id']}
-        )
-        await asyncio.sleep(1)
-        await cache.quorum_db.close()
-    else:
-        async def db_cleanup():
-            while not len(
-                await cache.quorum_db.tables['quorum'].select('ready', where={'ready': False})
-            ) == 0:
-                # leader waiting for members to complete - db setup
-                await asyncio.sleep(1)
-            await cache.quorum_db.run('drop table quorum')
-            await cache.quorum_db.run('drop table env')
-            await asyncio.sleep(1)
-            await cache.quorum_db.close()
-        await db_cleanup()
-    
+            await asyncio.sleep(5)
     return cache_db
